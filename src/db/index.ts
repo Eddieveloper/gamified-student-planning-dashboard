@@ -7,12 +7,6 @@ export const databaseUrl =
   process.env.POSTGRES_PRISMA_URL ??
   process.env.POSTGRES_URL_NON_POOLING;
 
-if (!databaseUrl) {
-  throw new Error(
-    "A PostgreSQL connection string is required. Set DATABASE_URL or POSTGRES_URL."
-  );
-}
-
 const globalForDb = globalThis as typeof globalThis & {
   __arenaNextJsPostgresqlPool?: Pool;
 };
