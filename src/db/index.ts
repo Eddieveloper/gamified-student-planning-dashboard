@@ -1,10 +1,16 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 
-const databaseUrl = process.env.DATABASE_URL;
+export const databaseUrl =
+  process.env.DATABASE_URL ??
+  process.env.POSTGRES_URL ??
+  process.env.POSTGRES_PRISMA_URL ??
+  process.env.POSTGRES_URL_NON_POOLING;
 
 if (!databaseUrl) {
-  throw new Error("DATABASE_URL is required");
+  throw new Error(
+    "A PostgreSQL connection string is required. Set DATABASE_URL or POSTGRES_URL."
+  );
 }
 
 const globalForDb = globalThis as typeof globalThis & {

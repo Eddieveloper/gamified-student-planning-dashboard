@@ -1,14 +1,21 @@
 import "dotenv/config";
 import { defineConfig } from "drizzle-kit";
 
-if (!process.env.DATABASE_URL) {
-  throw new Error("DATABASE_URL is required to run Drizzle commands");
-}
+const databaseUrl =
+  process.env.DATABASE_URL ??
+  process.env.POSTGRES_URL_NON_POOLING ??
+  process.env.POSTGRES_URL ??
+  process.env.POSTGRES_PRISMA_URL;
+
+if (!databaseUrl)
+  throw new Error(
+    "A PostgreSQL connection string is required. Set DATABASE_URL or POSTGRES_URL."
+  );
 
 export default defineConfig({
   dialect: "postgresql",
   schema: "./src/db/schema.ts",
   dbCredentials: {
-    url: process.env.DATABASE_URL,
+    url: databaseUrl,
   },
 });
