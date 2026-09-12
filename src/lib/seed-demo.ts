@@ -8,7 +8,7 @@ import {
   subjects,
   users,
 } from "@/db/schema";
-import { hashPassword } from "@/lib/auth";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { addDaysISO, startOfWeekISO, todayISO } from "@/lib/utils";
 
 export const DEMO_EMAIL = "demo@bloomu.app";
@@ -42,12 +42,22 @@ export async function ensureDemoSeed(): Promise<{ id: string; name: string }> {
   const between = (lo: number, hi: number) =>
     Math.round(lo + rand() * (hi - lo));
 
+  const supabase = createSupabaseAdminClient();
+  const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+    email: DEMO_EMAIL,
+    password: DEMO_PASSWORD,
+    email_confirm: true,
+    user_metadata: { name: "Maya Chen" },
+  });
+  if (authError || !authData.user)
+    throw new Error(authError?.message ?? "Unable to create the Supabase demo user");
+
   const [user] = await db
     .insert(users)
     .values({
+      id: authData.user.id,
       email: DEMO_EMAIL,
       name: "Maya Chen",
-      passwordHash: hashPassword(DEMO_PASSWORD),
       // Backdate so seeded history participates in debt calculations
       createdAt: new Date(Date.now() - 16 * 86400000),
     })

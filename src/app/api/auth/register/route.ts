@@ -1,7 +1,6 @@
-import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { settings, users } from "@/db/schema";
-import { createSession, hashPassword } from "@/lib/auth";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export async function POST(req: Request) {
   const body = await req.json().catch(() => null);
@@ -21,24 +20,24 @@ export async function POST(req: Request) {
       { status: 400 }
     );
 
-  const exists = await db
-    .select({ id: users.id })
-    .from(users)
-    .where(eq(users.email, email))
-    .limit(1);
-  if (exists[0])
-    return Response.json(
-      { error: "An account with this email already exists." },
-      { status: 409 }
-    );
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: { data: { name } },
+  });
+  if (error || !data.user)
+    return Response.json({ error: error?.message ?? "Unable to create account." }, { status: 400 });
 
   const [user] = await db
     .insert(users)
-    .values({ email, name, passwordHash: hashPassword(password) })
+    .values({ id: data.user.id, email, name })
+    .onConflictDoUpdate({ target: users.id, set: { email, name } })
     .returning({ id: users.id, name: users.name, email: users.email });
+  await db.insert(settings).values({ userId: user.id }).onConflictDoNothing();
 
-  await db.insert(settings).values({ userId: user.id });
-  await createSession(user.id);
-
-  return Response.json({ user }, { status: 201 });
+  return Response.json(
+    { user, needsEmailConfirmation: !data.session },
+    { status: 201 }
+  );
 }

@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { users } from "@/db/schema";
-import { createSession, verifyPassword } from "@/lib/auth";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export async function POST(req: Request) {
   const body = await req.json().catch(() => null);
@@ -10,22 +10,21 @@ export async function POST(req: Request) {
   const email = String(body.email ?? "").trim().toLowerCase();
   const password = String(body.password ?? "");
 
-  const rows = await db
-    .select()
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  if (error || !data.user?.email)
+    return Response.json({ error: "Incorrect email or password." }, { status: 401 });
+
+  const [user] = await db
+    .select({ id: users.id, name: users.name, email: users.email })
     .from(users)
-    .where(eq(users.email, email))
+    .where(eq(users.id, data.user.id))
     .limit(1);
-  const user = rows[0];
-
-  if (!user || !verifyPassword(password, user.passwordHash)) {
-    return Response.json(
-      { error: "Incorrect email or password." },
-      { status: 401 }
-    );
-  }
-
-  await createSession(user.id);
   return Response.json({
-    user: { id: user.id, name: user.name, email: user.email },
+    user: user ?? {
+      id: data.user.id,
+      name: String(data.user.user_metadata?.name ?? email.split("@")[0]),
+      email,
+    },
   });
 }

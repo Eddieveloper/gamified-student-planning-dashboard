@@ -31,10 +31,16 @@ export default function LoginPage() {
     setError(null);
     setBusy("form");
     try {
-      await api(`/api/auth/${mode}`, {
+      const result = await api<{ needsEmailConfirmation?: boolean }>(`/api/auth/${mode}`, {
         method: "POST",
         body: JSON.stringify({ name, email, password }),
       });
+      if (mode === "register" && result.needsEmailConfirmation) {
+        setBusy(null);
+        setError("Account created. Check your email to confirm your account, then sign in.");
+        setMode("login");
+        return;
+      }
       router.replace("/");
       router.refresh();
     } catch (err) {
